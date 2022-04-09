@@ -1,5 +1,5 @@
 ## CRUCIALLY IMPORTANT
-Until it is fixed, do not run for recordings longer than about 30 seconds as it will freeze your computer. This is being published to get help with fixing not yet for practical use.
+Until it is fixed, do not run for recordings longer than about 20 seconds as it will freeze your computer. This is being published to get help with fixing not yet for practical use.
 
 # Heat-Signature-Replay-Redo
 streamlined program to record and edit Heat Signature clips into realtime speed 
