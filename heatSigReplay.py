@@ -49,8 +49,9 @@ process2.open("Heat_Signature.exe")
 
 ######################################################################################################################
 
-def recordToggle(key): #handle record presses
-    global recording
+def record(key): #handle record presses
+    global recordToggle, recording
+    
     if(recordToggle): #if set to toggle
         if(key == recordKey1): #if record toggle pressed
             recording = not recording
@@ -68,7 +69,7 @@ def recordToggle(key): #handle record presses
 
 
 recording = False 
-listener = keyboard.Listener(on_press=recordToggle) #set up keyboard listener
+listener = keyboard.Listener(on_press=record) #set up keyboard listener
 listener.start() #starts keyboard listener
 recorder = mss.mss() #screenshot taker set up
 
@@ -159,10 +160,11 @@ def edit(times, shots): #create and edit raw footage from speed change timestamp
                 clip = clip.fx(vfx.speedx, 1/times[i][1])
                 clips.append(clip)
             
-    if(len(times) > 0): #if speed changes exist
-        if(len(times) > 1 and times[-2][1] == 0): #if second to last speed change exists and is a pause, add a bit of an offset to remove any excess pause frames
-            clip = inVid.subclip(times[-1][0]+unpauseOffset, inVid.duration)
-            clips.append(clip)
+    if(len(times) > 0): #if speed changes exist (should always since starting speed counts as a speed change)
+        if(times[-1][0] < inVid.duration): #if start of last speed change doesn't exceed raw footage stop (could happen due to raw footage being slightly too fast)
+            if(len(times) > 1 and times[-2][1] == 0): #if second to last speed change exists and is a pause, add a bit of an offset to remove any excess pause frames
+                clip = inVid.subclip(times[-1][0]+unpauseOffset, inVid.duration)
+                clips.append(clip)
         elif(times[-1][1] != 0): #else if last speed change is not a pause
             clip = inVid.subclip(times[-1][0], inVid.duration)
             clips.append(clip)
