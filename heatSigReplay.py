@@ -165,9 +165,9 @@ def edit(times, shots): #create and edit raw footage from speed change timestamp
             if(len(times) > 1 and times[-2][1] == 0): #if second to last speed change exists and is a pause, add a bit of an offset to remove any excess pause frames
                 clip = inVid.subclip(times[-1][0]+unpauseOffset, inVid.duration)
                 clips.append(clip)
-        elif(times[-1][1] != 0): #else if last speed change is not a pause
-            clip = inVid.subclip(times[-1][0], inVid.duration)
-            clips.append(clip)
+            elif(times[-1][1] != 0): #else if last speed change is not a pause
+                clip = inVid.subclip(times[-1][0], inVid.duration)
+                clips.append(clip)
     else: #if no speed changes exist, return raw video as is
         clips.append(inVid)
 
