@@ -26,4 +26,5 @@ pip install mss
 pip install pynput
 pip install moviepy
 ~~~~
-5. Run `heatSigReplay.py`
+5. Run Heat Signature.
+6. Run `heatSigReplay.py`.
