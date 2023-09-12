@@ -1,3 +1,5 @@
+import ctypes
+
 import time #lets you get current time
 from datetime import datetime #lets you get a different current time (easier to access month, day, year, hour, minute, and second)
 
@@ -28,6 +30,10 @@ keepFastMo = True #when true, doesn't slow down fast mo (if false, those segment
 
 generalOffset = -.08 #how much earlier to set timestamps to account for delay in fetching timescale variable
 unpauseOffset = .12 #how much later to end unpause to make sure its frames aren't included
+
+######################################################################################################################
+
+ctypes.windll.user32.MessageBoxW(None, "USE AT YOUR OWN RISK!!!\nUntil it is fixed, do not run for recordings longer than about 30 seconds as it will freeze and likely crash your computer.", "HEAT SIG REPLAY WARNING", 0)
 
 ######################################################################################################################
 #adapted from the following with author's permission:
