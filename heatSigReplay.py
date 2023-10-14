@@ -31,6 +31,11 @@ generalOffset = -.08 #how much earlier to set timestamps to account for delay in
 unpauseOffset = .12 #how much later to end unpause to make sure its frames aren't included
 
 ######################################################################################################################
+    
+if(recordToggle):
+    print("Press " + recordKey1.char + " to start/stop recording.")
+else:
+    print("Press " + recordKey1.char + " to start recording. \nPress " + recordKey2.char + " to stop.")
 
 ctypes.windll.user32.MessageBoxW(None, "USE AT YOUR OWN RISK!!!\nUntil it is fixed, do not run for recordings longer than about 30 seconds as it will freeze and likely crash your computer.", "HEAT SIG REPLAY WARNING", 0)
 
@@ -151,6 +156,8 @@ def edit(times, shots): #create and edit raw footage from speed change timestamp
     raw.release()
     #######################################################################
     
+    while(not os.path.exists(timeStr+"_raw.mp4")):
+        pass
     
     inVid = VideoFileClip(timeStr+"_raw.mp4") #raw input clip
     
@@ -171,9 +178,10 @@ def edit(times, shots): #create and edit raw footage from speed change timestamp
             if(len(times) > 1 and times[-2][1] == 0): #if second to last speed change exists and is a pause, add a bit of an offset to remove any excess pause frames
                 clip = inVid.subclip(times[-1][0]+unpauseOffset, inVid.duration)
                 clips.append(clip)
-        elif(times[-1][1] != 0): #else if last speed change is not a pause
-            clip = inVid.subclip(times[-1][0], inVid.duration)
-            clips.append(clip)
+            elif(times[-1][1] != 0): #else if last speed change is not a pause
+                clip = inVid.subclip(times[-1][0], inVid.duration)
+                clip = clip.fx(vfx.speedx, 1/times[-1][1])
+                clips.append(clip)
     else: #if no speed changes exist, return raw video as is
         clips.append(inVid)
 

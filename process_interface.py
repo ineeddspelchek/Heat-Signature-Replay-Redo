@@ -1,4 +1,5 @@
-#unused code was commented out by me (ineeddspelechek) not the original author
+# unused code was commented out by me (ineeddspelechek) not the original author
+# try, excepts also added by me
 
 import psutil
 from ctypes import *
@@ -40,7 +41,16 @@ class ProcessInterface(object):
             windll.kernel32.SetLastError(10000)
 
     def read_memory(self, address, buffer_size=4):
-        buf = create_string_buffer(buffer_size)
+        #modified from original author's code
+        through = False
+        while(not through):
+            try:
+                buf = create_string_buffer(buffer_size)
+                through = True
+            except KeyboardInterrupt:
+                pass
+        #####################################
+        
         bytes_read = c_ulong(0)
         if windll.kernel32.ReadProcessMemory(self.h_process, address, buf, buffer_size, byref(bytes_read)):
             return buf
