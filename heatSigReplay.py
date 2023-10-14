@@ -37,8 +37,6 @@ if(recordToggle):
 else:
     print("Press " + recordKey1.char + " to start recording. \nPress " + recordKey2.char + " to stop.")
 
-ctypes.windll.user32.MessageBoxW(None, "USE AT YOUR OWN RISK!!!\nUntil it is fixed, do not run for recordings longer than about 30 seconds as it will freeze and likely crash your computer.", "HEAT SIG REPLAY WARNING", 0)
-
 ######################################################################################################################
 #adapted from the following with author's permission:
 #https://youtu.be/x4WE3mSJoRA
