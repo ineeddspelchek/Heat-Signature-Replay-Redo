@@ -17,4 +17,4 @@ A code snippet was also adapted from www.thepythoncode.com/article/make-screen-r
 3. Run `heatSigReplay.exe`.
 4. Wait a few seconds for text to appear in the window.
 5. Play.
-6. Close program after last `out` clip is done editing.
+6. Close program after last `out.mp4` clip is done editing.
