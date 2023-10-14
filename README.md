@@ -12,19 +12,9 @@ Much of this comes thanks to two people:
 A code snippet was also adapted from www.thepythoncode.com/article/make-screen-recorder-python.
 
 # How To
-1. Download python.
-2. Download the two python programs.
-3. Edit the top 4 variables of `heatSigReplay.py` to your preference.
-4. Download the necessary dependencies by putting the following into command prompt:
-~~~~
-pip install ReadWriteMemory
-pip install pymem
-pip install cv2
-pip install numpy
-pip install pyautogui
-pip install mss
-pip install pynput
-pip install moviepy
-~~~~
-5. Run Heat Signature.
-6. Run `heatSigReplay.py`.
+1. Download the latest release.
+2. Run Heat Signature.
+3. Run `heatSigReplay.exe`.
+4. Wait a few seconds for text to appear in the window.
+5. Play.
+6. Close program after last `out.mp4` clip is done editing.
