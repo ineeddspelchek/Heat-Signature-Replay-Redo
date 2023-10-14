@@ -19,12 +19,27 @@ import threading
 
 from moviepy.editor import * #lets you edit videos
 
-#edit these values to what you want
-recordToggle = False #True if you only want one key to toggle recording; False if you want separate record and stop record buttons
-recordKey1 = keyboard.KeyCode.from_char('g') #record button or toggle
-recordKey2 = keyboard.KeyCode.from_char('h') #stop record button
+if(not os.path.exists("hsConfig.txt")):
+    print("hsConfig.txt not found. Creating file.")
+    config = open("hsConfig.txt", "w")
+    config.writelines(["(True to use one key to toggle recording or False to have one for start one for stop) RecordingToggle=True\n",
+                       "(Key to begin or toggle recording) Start/ToggleRecordingKey=g\n",
+                       "(Key to stop recording) StopRecordingKey=h\n",
+                       "(True to not slow down fastmo in clips or False to slow them) KeepFastMo=True\n"])
+    config.close()
+    
+input("Press Enter in this window once you have configured hsConfig.txt how you want it.")
+
+print("\n")
+
+config = open("hsConfig.txt", "r")
+lines = config.readlines()
+
+recordToggle = lines[0][-6].upper() != "F" #True if you only want one key to toggle recording; False if you want separate record and stop record buttons
+recordKey1 = keyboard.KeyCode.from_char(lines[1][-2].lower()) #record button or toggle
+recordKey2 = keyboard.KeyCode.from_char(lines[2][-2].lower()) #stop record button
 #   *example keybinds: keyboard.KeyCode.from_char('a'), keyboard.Key.space, keyboard.Key.alt_l, keyboard.Key.ctrl_r
-keepFastMo = True #when true, doesn't slow down fast mo (if false, those segments go down to 5 fps)
+keepFastMo = lines[3][-6].upper() != "F" #when True, doesn't slow down fast mo (if false, those segments go down to 5 fps)
 ###################################
 
 generalOffset = -.08 #how much earlier to set timestamps to account for delay in fetching timescale variable
@@ -35,7 +50,7 @@ unpauseOffset = .12 #how much later to end unpause to make sure its frames aren'
 if(recordToggle):
     print("Press " + recordKey1.char + " to start/stop recording.")
 else:
-    print("Press " + recordKey1.char + " to start recording. \nPress " + recordKey2.char + " to stop.")
+    print("Press " + recordKey1.char + " to start recording. \nPress " + recordKey2.char + " to stop recording.")
 
 ######################################################################################################################
 #adapted from the following with author's permission:
@@ -134,7 +149,7 @@ def main():
             readyToEdit = True
             
         if(readyToEdit): #if raw footage ready to put together and edit
-            print(times) #print timestamp entries
+            print("Processing Footage. A progress bar will appear (may take a while)...")
             editTimer = threading.Timer(0, edit, args=[times, shots]) #set up edit
             editTimer.start() #start edit
             
