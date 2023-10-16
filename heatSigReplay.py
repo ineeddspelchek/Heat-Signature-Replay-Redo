@@ -1,5 +1,4 @@
-import ctypes
-
+import datetime
 import time #lets you get current time
 from datetime import datetime #lets you get a different current time (easier to access month, day, year, hour, minute, and second)
 
@@ -13,11 +12,29 @@ import cv2
 import numpy as np
 import pyautogui
 import mss
+import win32gui
+import pywintypes
 
 from pynput import keyboard
 import threading
 
 from moviepy.editor import * #lets you edit videos
+
+import boto3
+import random
+import botocore
+import pickle
+
+lambdaclient = boto3.client(service_name='lambda', 
+                            region_name="us-east-1", 
+                            aws_access_key_id="", 
+                            aws_secret_access_key="")
+s3client = boto3.Session().client(service_name="s3", 
+                                  region_name="us-east-1", 
+                                  aws_access_key_id="", 
+                                  aws_secret_access_key="",
+                                  config=botocore.config.Config(max_pool_connections=20, connect_timeout=100000, read_timeout=10000))
+s3t = boto3.s3.transfer.create_transfer_manager(s3client, config=boto3.s3.transfer.TransferConfig(max_concurrency=40, multipart_threshold=10000000, multipart_chunksize=10000000))
 
 if(not os.path.exists("hsConfig.txt")):
     print("hsConfig.txt not found. Creating file.")
@@ -27,7 +44,7 @@ if(not os.path.exists("hsConfig.txt")):
                        "(Key to stop recording) StopRecordingKey=h\n",
                        "(True to not slow down fastmo in clips or False to slow them) KeepFastMo=True\n"])
     config.close()
-    
+
 input("Press Enter in this window once you have configured hsConfig.txt how you want it.")
 
 print("\n")
@@ -40,10 +57,11 @@ recordKey1 = keyboard.KeyCode.from_char(lines[1][-2].lower()) #record button or 
 recordKey2 = keyboard.KeyCode.from_char(lines[2][-2].lower()) #stop record button
 #   *example keybinds: keyboard.KeyCode.from_char('a'), keyboard.Key.space, keyboard.Key.alt_l, keyboard.Key.ctrl_r
 keepFastMo = lines[3][-6].upper() != "F" #when True, doesn't slow down fast mo (if false, those segments go down to 5 fps)
+
+
 ###################################
 
 generalOffset = -.08 #how much earlier to set timestamps to account for delay in fetching timescale variable
-unpauseOffset = .12 #how much later to end unpause to make sure its frames aren't included
 
 ######################################################################################################################
     
@@ -101,6 +119,7 @@ def main():
     global recording
     
     recording = False
+    firstbbox = -1
 
     while(True): #while code runs
         #reset/set values
@@ -144,18 +163,48 @@ def main():
                         state = 3
                         times.append([time.time()-baseTime+generalOffset, 6])
                         
-                shots.append(pyautogui.screenshot()) #take a screenshot and store it
+                ###########################################################################################################
+                # from https://stackoverflow.com/questions/3260559/how-to-get-a-window-or-fullscreen-screenshot-without-pil
+                try:
+                    toplist, winlist = [], []
+                    def enum_cb(hwnd, results):
+                        winlist.append((hwnd, win32gui.GetWindowText(hwnd)))
+                    win32gui.EnumWindows(enum_cb, toplist)
+
+                    hwnd = [(hwnd, title) for hwnd, title in winlist if 'Heat Signature' == title][0][0]
+
+                    win32gui.SetForegroundWindow(hwnd)
+                    bbox = win32gui.GetWindowRect(hwnd)
+                    if(firstbbox == -1): #if first bounds haven't been set, set them to current bounds
+                        firstbbox = bbox
+                except pywintypes.error: #if window is closed
+                    bbox = -1
+                ###########################################################################################################
+
+                if(bbox != firstbbox): #if bounds are not the same as the first bounds, just reuse the last shot and consider yourself currently paused until it is resolved
+                    state = 0
+                    times.append([time.time()-baseTime+generalOffset, 0])
+                    try:
+                        shots.append(shots[-1])
+                    except IndexError:
+                        recording = False
+                        print("GAME WINDOW NOT OPEN\nNOT RECORDING")
+                else:
+                    try:
+                        shots.append(pyautogui.screenshot(region=bbox)) #take a screenshot and store it
+                    except TypeError:
+                        recording = False
+                        print("GAME WINDOW NOT OPEN\nNOT RECORDING")
                 currFrame += 1 #increment current frame
             readyToEdit = True
             
-        if(readyToEdit): #if raw footage ready to put together and edit
-            print("Processing Footage. A progress bar will appear (may take a while)...")
+        if(readyToEdit and len(shots) > 0): #if raw footage ready to put together and edit
             editTimer = threading.Timer(0, edit, args=[times, shots]) #set up edit
             editTimer.start() #start edit
-            
-            
 
-def edit(times, shots): #create and edit raw footage from speed change timestamps and screenshots
+def edit(times, shots):
+    print("Processing Footage...")
+    
     now = datetime.now() #current time
     timeStr = str(now.month) + "-" + str(now.day) + "-" + str(now.year) + "_" + str(now.hour) + "," + str(now.minute) + "," + str(now.second) #file identifier
     
@@ -167,39 +216,53 @@ def edit(times, shots): #create and edit raw footage from speed change timestamp
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         raw.write(frame)
     raw.release()
-    #######################################################################
     
-    while(not os.path.exists(timeStr+"_raw.mp4")):
-        pass
+    key = random.randint(0, 999999999999)
+    tagset = s3client.get_bucket_tagging(Bucket="heatsigreplayraw")["TagSet"]
+    keyset = [tag.get("Key") for tag in tagset]
+    while(True): #roll keys until you get an unused one
+        if(not key in keyset):
+            break
+        else:
+            key = random.randint(0, 999999999999)
     
-    inVid = VideoFileClip(timeStr+"_raw.mp4") #raw input clip
+    print(str(key) + ": UPLOADING FOOTAGE")
+    ##############################################################################################################
+    # from https://stackoverflow.com/questions/56639630/how-can-i-increase-my-aws-s3-upload-speed-when-using-boto3
     
-    clips = [] #list of clips to be combined
-    for i in range(0, len(times)-1): #for all speed changes excluding the last
-        if(times[i][1] != 0): #if not a pause
-            if(i > 0 and times[i-1][1] == 0): #if a previous change exists and it is a pause, add a bit of an offset to remove any excess pause frames
-                clip = inVid.subclip(times[i][0]+unpauseOffset, times[i+1][0])
-                clip = clip.fx(vfx.speedx, 1/times[i][1])
-                clips.append(clip)
-            else: #if previous change is not a pause or none exists
-                clip = inVid.subclip(times[i][0], times[i+1][0])
-                clip = clip.fx(vfx.speedx, 1/times[i][1])
-                clips.append(clip)
-            
-    if(len(times) > 0): #if speed changes exist (should always since starting speed counts as a speed change)
-        if(times[-1][0] < inVid.duration): #if start of last speed change doesn't exceed raw footage stop (could happen due to raw footage being slightly too fast)
-            if(len(times) > 1 and times[-2][1] == 0): #if second to last speed change exists and is a pause, add a bit of an offset to remove any excess pause frames
-                clip = inVid.subclip(times[-1][0]+unpauseOffset, inVid.duration)
-                clips.append(clip)
-            elif(times[-1][1] != 0): #else if last speed change is not a pause
-                clip = inVid.subclip(times[-1][0], inVid.duration)
-                clip = clip.fx(vfx.speedx, 1/times[-1][1])
-                clips.append(clip)
-    else: #if no speed changes exist, return raw video as is
-        clips.append(inVid)
-
-    outVid = concatenate_videoclips(clips) #combine clips into one
-    outVid.write_videofile(timeStr+"_out.mp4", fps=30) #output final mp4
-
+    size = os.stat(timeStr+"_raw.mp4").st_size
+    transferred = 0
+    
+    def progress_update(transferredOnce):        
+        nonlocal transferred
+        
+        transferred += transferredOnce
+        print(str(key) + ": " + format(transferred/size, ".1%") + " UPLOADED")
+    
+    s3client.upload_file(Filename=timeStr+"_raw.mp4",
+            Bucket="heatsigreplayraw", 
+            Key=str(key),
+            Callback=progress_update,
+            Config=boto3.s3.transfer.TransferConfig(max_concurrency=40, multipart_threshold=10000000, multipart_chunksize=10000000))
+    ##############################################################################################################
+    s3client.put_object(Body=pickle.dumps(times), 
+                            Bucket="heatsigreplaytimes",
+                            Key=str(key))
+    print(str(key) + ": UPLOAD DONE; EDITING IN CLOUD")
+    
+    response = lambdaclient.invoke(FunctionName="arn:aws:lambda:us-east-1:948974275354:function:heatSigReplayProcessing", 
+                                    Payload=str(key))
+    print(str(key) + ": EDIT IN CLOUD DONE; DOWNLOADING FOOTAGE")
+    
+    back = response["Payload"].read()
+    
+    if(str(back) == "b\'\"success\"\'"):
+        out = open(timeStr+"_out.mp4", "wb")
+        out.write(s3client.get_object(Bucket="heatsigreplayout", Key=str(key))["Body"].read())
+        out.close()
+        s3client.delete_object(Bucket="heatsigreplayout", Key=str(key))
+        print(str(key) + ": DOWNLOAD DONE")
+    else:
+        print(str(key) + ": EDIT/DOWNLOAD FAILED")
 
 main() #run main
