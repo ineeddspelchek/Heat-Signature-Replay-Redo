@@ -9,4 +9,4 @@ moviepy=1.0.3
 win32gui=221.6
 boto3=1.28.63
 pickle5=0.0.12
-botocore 1.31.63
+botocore=1.31.63
