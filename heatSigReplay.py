@@ -16,6 +16,7 @@ import mss
 
 from pynput import keyboard
 import threading
+import subprocess
 
 from moviepy.editor import * #lets you edit videos
 
@@ -43,21 +44,26 @@ keepFastMo = lines[3][-6].upper() != "F" #when True, doesn't slow down fast mo (
 ###################################
 
 generalOffset = 0 #how much earlier to set timestamps to account for delay in fetching timescale variable
-pauseOffset = -.03 #how much earlier to start pause to make sure its frames aren't included
-unpauseOffset = .02 #how much later to end unpause to make sure its frames aren't included
-
-######################################################################################################################
-    
-if(recordToggle):
-    print("Press " + recordKey1.char + " to start/stop recording.")
-else:
-    print("Press " + recordKey1.char + " to start recording. \nPress " + recordKey2.char + " to stop recording.")
+pauseOffset = .05 #how much earlier to start pause to make sure its frames aren't included
+unpauseOffset = .05 #how much later to end unpause to make sure its frames aren't included
 
 ######################################################################################################################
 #adapted from the following with author's permission:
 #https://youtu.be/x4WE3mSJoRA
 #https://youtu.be/OEgvqDbdfQI
 #https://youtu.be/Pv0wx4uHRfM
+
+sleep = False
+
+if(not pymem.process.process_from_name("Heat_Signature.exe")):
+    sleep = True
+    print("GAME NOT OPEN")
+
+while(not pymem.process.process_from_name("Heat_Signature.exe")):
+    pass
+
+if (sleep):
+    time.sleep(6)
 
 base_address = pymem.Pymem(process_name="Heat_Signature.exe").base_address
 static_address_offset = 0x0453D610
@@ -70,7 +76,14 @@ process.open()
 my_pointer = process.get_pointer(pointer_static_address, offsets=offsets)
 
 process2 = ProcessInterface()
-process2.open("Heat_Signature.exe")
+process2.open("Heat_Signature.exe")  
+
+######################################################################################################################
+    
+if(recordToggle):
+    print("Press " + recordKey1.char + " to start/stop recording.")
+else:
+    print("Press " + recordKey1.char + " to start recording. \nPress " + recordKey2.char + " to stop recording.")
 
 ######################################################################################################################
 
@@ -160,52 +173,96 @@ def edit(times, shots): #create and edit raw footage from speed change timestamp
     now = datetime.now() #current time
     timeStr = str(now.month) + "-" + str(now.day) + "-" + str(now.year) + "_" + str(now.hour) + "," + str(now.minute) + "," + str(now.second) #file identifier
     
+    t = time.time()
+    
     #from https://www.thepythoncode.com/article/make-screen-recorder-python 
     raw = cv2.VideoWriter(timeStr+"_raw.mp4", cv2.VideoWriter_fourcc(*"mp4v"), 30, tuple(pyautogui.size()))
+    
+    frames = []
+    
+    t = time.time()
     
     for i in range(0, len(shots)):
         frame = np.array(shots[i])
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        raw.write(frame)
+        frames.append(frame)
+    
+    for i in range(0, len(shots)):
+        raw.write(frames[i])
     raw.release()
+    
     #######################################################################
+    
+    print("OVERALL RAW MAKE TIME: " + str(time.time() - t))
+    t = time.time()
     
     while(not os.path.exists(timeStr+"_raw.mp4")):
         pass
     
     inVid = VideoFileClip(timeStr+"_raw.mp4") #raw input clip
     
-    clips = [] #list of clips to be combined
+    clips = [None]*len(times) #list of clips to be combined
     for i in range(0, len(times)-1): #for all speed changes excluding the last
         if(times[i][1] != 0): #if not a pause
-            if(i > 0 and times[i-1][1] == 0): #if a previous change exists and it is a pause, add a bit of an offset to remove any excess pause frames
-                clipstart = min(times[i][0]+unpauseOffset, inVid.duration)
+            if(i > 0 and times[i-1][1] == 0): #if a previous change exists and it is a pause
+                prevPause = True
             else: #if previous change is not a pause or none exists
-                clipstart = min(times[i][0], inVid.duration)
+                prevPause = False
                 
-            if(times[i+1][1] == 0): #if next speed change is a pause, cut earlier to remove any excess pause frames
-                clipend = max(times[i+1][0]+pauseOffset, 0)
+            if(times[i+1][1] == 0): #if next speed change is a pause
+                nextPause = True
             else: #if next change is not a pause
-                clipend = times[i+1][0]
-                
-            clip = inVid.subclip(clipstart, clipend)
-            clip = clip.fx(vfx.speedx, 1/times[i][1])
-            clips.append(clip)
+                nextPause = False
             
-    if(len(times) > 0): #if speed changes exist (should always since starting speed counts as a speed change)
-        if(times[-1][0] < inVid.duration): #if start of last speed change doesn't exceed raw footage stop (could happen due to raw footage being slightly too fast)
-            if(len(times) > 1 and times[-2][1] == 0): #if second to last speed change exists and is a pause, add a bit of an offset to remove any excess pause frames
-                clip = inVid.subclip(min(times[-1][0]+unpauseOffset, inVid.duration), inVid.duration)
-                clips.append(clip)
-            elif(times[-1][1] != 0): #else if last speed change is not a pause
-                clip = inVid.subclip(times[-1][0], inVid.duration)
-                clip = clip.fx(vfx.speedx, 1/times[-1][1])
-                clips.append(clip)
-    else: #if no speed changes exist, return raw video as is
-        clips.append(inVid)
+            if(prevPause and nextPause): #pause before and after current clip
+                clipstart = min(times[i][0]+unpauseOffset, times[i+1][0]-pauseOffset)
+                clipend = max(times[i+1][0]-pauseOffset, times[i][0]+unpauseOffset) 
+            elif(prevPause): #pause only before current clip
+                clipstart = min(times[i][0]+unpauseOffset, times[i+1][0]) 
+                clipend = times[i+1][0]
+            elif(nextPause): #pause only after current clip
+                clipstart = times[i][0]
+                clipend = max(times[i+1][0]-pauseOffset, times[i][0])
+            else: #no pause before or after current clip
+                clipstart = times[i][0]
+                clipend = times[i+1][0]
+            
+            clipstart = max(clipstart, 0)
+            clipend = max(clipend, 0)
+            
+            clipstart = min(clipstart, inVid.duration)
+            clipend = min(clipend, inVid.duration)
+            
+            clip = inVid.subclip(clipstart, clipend)
+            if(times[i][1] != 1):
+                clip = clip.fx(vfx.speedx, 1/times[i][1])
+            clips[i] = clip
+    
+    #once all but the last clip are accounted for
+    
+    if(times[-1][1] != 0): #if last time change is not a pause
+        if(len(times) > 1 and times[-2][1] == 0): #if second to last speed change exists and is a pause
+            clipstart = min(times[-1][0]+unpauseOffset, inVid.duration)
+        else:
+            clipstart = min(times[-1][0], inVid.duration)
+        
+        clip = inVid.subclip(clipstart, inVid.duration)
+        if(times[-1][1] != 1):
+            clip = clip.fx(vfx.speedx, 1/times[-1][1])
+        clips[-1] = clip
 
-    outVid = concatenate_videoclips(clips) #combine clips into one
+    print("CLIPS MAKE TIME: " + str(time.time() - t))
+    t = time.time()
+    
+    clipsNoPauses = []
+    for i in range(0, len(times)):
+        if(times[i][1] != 0):
+            clipsNoPauses.append(clips[i])
+    
+    outVid = concatenate_videoclips(clipsNoPauses) #combine clips into one
     outVid.write_videofile(timeStr+"_out.mp4", fps=30) #output final mp4
 
+    print("OUT MAKE TIME: " + str(time.time() - t))
+    t = time.time()
 
 main() #run main
