@@ -43,8 +43,8 @@ keepFastMo = lines[3][-6].upper() != "F" #when True, doesn't slow down fast mo (
 ###################################
 
 generalOffset = 0 #how much earlier to set timestamps to account for delay in fetching timescale variable
-pauseOffset = -.05 #how much earlier to start pause to make sure its frames aren't included
-unpauseOffset = .05 #how much later to end unpause to make sure its frames aren't included
+pauseOffset = -.03 #how much earlier to start pause to make sure its frames aren't included
+unpauseOffset = .02 #how much later to end unpause to make sure its frames aren't included
 
 ######################################################################################################################
     
