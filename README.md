@@ -10,8 +10,9 @@ A code snippet was also adapted from www.thepythoncode.com/article/make-screen-r
 
 # How To
 1. Download the latest release.
-2. Run Heat Signature.
-3. Run `heatSigReplay.exe`.
-4. Wait a few seconds for text to appear in the window.
-5. Play.
-6. Close program after last `out.mp4` clip is done editing.
+2. Extract `heatSigReplay.zip`
+3. Run Heat Signature **in full screen**.
+4. Run `heatSigReplay.exe`.
+5. Wait a few seconds for text to appear in the window.
+6. Play.
+7. Close program after last `out.mp4` clip is done editing.
